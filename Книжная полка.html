@@ -1,0 +1,664 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Книжная полка</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Literata:wght@500;700;800&family=Onest:wght@400;500;600&display=swap">
+<style>
+/* Layout concept: каталог в форме книжной полки. Корешки стоят на полке в шапке,
+   ниже сетка обложек, у каждой книги шифр, как в библиотечном каталоге. */
+:root {
+  --bg: #F1F4F2;
+  --surface: #FFFFFF;
+  --fg: #13201B;
+  --muted: #55645D;
+  --line: #D3DBD6;
+  --accent: #1D4ED8;
+  --accent-fg: #FFFFFF;
+  --chip: #E5EAE7;
+  --shelf: #8A6A4A;
+  --heart: #D1365B;
+  --shadow: 0 1px 2px rgba(19,32,27,.14), 0 10px 22px -12px rgba(19,32,27,.45);
+  --f-display: 'Literata', Georgia, 'Times New Roman', serif;
+  --f-ui: 'Onest', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1513; --surface: #17201D; --fg: #E8EFEC; --muted: #93A39C; --line: #2A3733;
+    --accent: #8FADFF; --accent-fg: #0F1513; --chip: #1E2926; --shelf: #A98A68; --heart: #FF7A99;
+    --shadow: 0 1px 2px rgba(0,0,0,.5), 0 10px 22px -12px rgba(0,0,0,.8);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1513; --surface: #17201D; --fg: #E8EFEC; --muted: #93A39C; --line: #2A3733;
+  --accent: #8FADFF; --accent-fg: #0F1513; --chip: #1E2926; --shelf: #A98A68; --heart: #FF7A99;
+  --shadow: 0 1px 2px rgba(0,0,0,.5), 0 10px 22px -12px rgba(0,0,0,.8);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--f-ui);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+  z-index: 10; background: var(--bg);
+}
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+.wrap {
+  max-width: 1240px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+}
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Hero */
+.kicker { font: 500 12px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px; }
+h1 {
+  font-family: var(--f-display); font-weight: 800; letter-spacing: -.025em; line-height: .98;
+  font-size: clamp(44px, 9vw, 96px); margin: 0 0 16px; text-wrap: balance;
+}
+.lede { max-width: 58ch; color: var(--muted); font-size: 17px; margin: 0 0 28px; }
+.spines {
+  display: flex; align-items: flex-end; gap: 2px; height: 104px; overflow: hidden;
+  border-bottom: 7px solid var(--shelf); margin-bottom: 26px;
+}
+.spine {
+  flex: none; position: relative; width: var(--w); height: var(--h);
+  background: var(--c1); border-radius: 2px 2px 0 0;
+  box-shadow: inset 2px 0 0 rgba(255,255,255,.14), inset -2px 0 0 rgba(0,0,0,.2);
+}
+.spine::before, .spine::after { content: ""; position: absolute; left: 0; right: 0; height: 3px; background: var(--ac); }
+.spine::before { top: 12%; }
+.spine::after { bottom: 14%; }
+
+/* Tools */
+.tools { display: grid; gap: 12px; margin-bottom: 18px; }
+.search { position: relative; }
+.search svg { position: absolute; left: 14px; top: 50%; translate: 0 -50%; color: var(--muted); pointer-events: none; }
+.search input {
+  width: 100%; height: 50px; padding: 0 16px 0 44px; border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--line); font-size: 16px;
+}
+.search input::placeholder { color: var(--muted); }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.btn, select {
+  height: 42px; padding: 0 14px; border-radius: 8px; background: var(--surface);
+  border: 1px solid var(--line); font-weight: 500; display: inline-flex; align-items: center; gap: 8px;
+}
+select { padding-right: 8px; }
+.btn[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btn .n { font: 500 12px var(--f-mono); background: var(--chip); color: var(--fg); border-radius: 999px; padding: 2px 8px; }
+.btn[aria-pressed="true"] .n { background: var(--bg); color: var(--fg); }
+.btn svg { flex: none; }
+.spacer { flex: 1 1 0; }
+
+/* Chips */
+.chips-bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg); padding-block: 10px; border-bottom: 1px solid var(--line); margin-bottom: 14px;
+}
+.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; }
+.chip {
+  flex: none; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px;
+  border-radius: 999px; background: var(--chip); border: 1px solid transparent; font-weight: 500; white-space: nowrap;
+}
+.chip i { width: 10px; height: 10px; border-radius: 50%; background: var(--dot); box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
+.chip small { font: 400 12px var(--f-mono); color: var(--muted); }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.chip[aria-pressed="true"] small { color: var(--bg); opacity: .75; }
+
+.status { color: var(--muted); font-size: 13px; margin: 0 0 18px; min-height: 20px; }
+
+/* Grid */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 28px 18px; }
+.card { min-width: 0; }
+.cover-btn { display: block; width: 100%; padding: 0; border: 0; background: none; text-align: left; border-radius: 4px; }
+.meta { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.mark { font: 500 12px var(--f-mono); letter-spacing: .02em; }
+.yr { font: 400 12px var(--f-mono); color: var(--muted); }
+.fav {
+  margin-left: auto; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%;
+  background: none; border: 0; color: var(--muted);
+}
+.fav:hover { background: var(--chip); }
+.fav[aria-pressed="true"] { color: var(--heart); }
+.fav[aria-pressed="true"] svg { fill: currentColor; }
+
+/* Cover (generated, original artwork) */
+.cover {
+  position: relative; display: block; width: 100%; aspect-ratio: 2 / 3; max-width: 100%; overflow: hidden;
+  container-type: inline-size; border-radius: 2px 6px 6px 2px;
+  background: linear-gradient(160deg, var(--c1), var(--c2)); color: var(--ink); box-shadow: var(--shadow);
+}
+.cover::after {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: 6%; pointer-events: none;
+  background: linear-gradient(90deg, rgba(0,0,0,.3), rgba(0,0,0,0));
+}
+.art { position: absolute; inset: 0 0 56% 0; display: block; }
+.p0 { background: radial-gradient(circle at 68% 62%, var(--ac) 0 30%, transparent 30.6%); }
+.p1 { background: repeating-linear-gradient(135deg, var(--ac) 0 7px, transparent 7px 16px); opacity: .9; }
+.p2 { background: repeating-radial-gradient(circle at 18% 100%, var(--ac) 0 6px, transparent 6px 13px); }
+.p3 { background: linear-gradient(90deg, var(--ac) 0 28%, transparent 28% 34%, var(--ac) 34% 54%, transparent 54% 60%, var(--ac) 60% 100%); clip-path: polygon(0 100%, 0 38%, 100% 8%, 100% 100%); }
+.p4 { background: radial-gradient(var(--ac) 2.4px, transparent 2.9px) 0 0 / 13px 13px; opacity: .95; }
+.cv-title {
+  position: absolute; left: 10%; right: 8%; top: 46%; display: block;
+  font-family: var(--f-display); font-weight: 800; line-height: 1.08; letter-spacing: -.01em;
+  font-size: calc(var(--fs) * 1cqw); text-wrap: balance; hyphens: auto; overflow-wrap: break-word;
+}
+.cv-author {
+  position: absolute; left: 10%; right: 8%; bottom: 6%; display: block;
+  font: 600 6.4cqw/1.2 var(--f-ui); letter-spacing: .02em; opacity: .92;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cover-btn .cover { transition: transform .18s ease, box-shadow .18s ease; }
+  .cover-btn:hover .cover { transform: translateY(-5px); }
+}
+
+.empty { text-align: center; padding: 56px 16px; color: var(--muted); }
+.empty h2 { font-family: var(--f-display); color: var(--fg); font-size: 24px; margin: 0 0 8px; }
+.empty .btn { margin-top: 14px; }
+
+footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; max-width: 70ch; }
+
+/* Modal */
+.overlay {
+  position: fixed; inset: 0; z-index: 20; background: rgba(8,14,12,.62); display: grid; place-items: center;
+  padding-block: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.panel {
+  position: relative; width: 100%; max-width: 760px; max-height: 100%; overflow-y: auto;
+  background: var(--surface); color: var(--fg); border-radius: 14px; padding: 26px;
+  display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px 28px; box-shadow: 0 30px 60px -20px rgba(0,0,0,.6);
+}
+.close { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--chip); display: grid; place-items: center; z-index: 2; }
+.m-cover { width: 100%; }
+.m-info { min-width: 0; display: flex; flex-direction: column; gap: 10px; padding-right: 28px; }
+.m-genre { display: inline-flex; align-items: center; gap: 8px; font: 500 12px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.m-genre i { width: 10px; height: 10px; border-radius: 50%; background: var(--dot); box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
+.m-info h2 { font-family: var(--f-display); font-weight: 800; font-size: clamp(26px, 4vw, 36px); line-height: 1.08; margin: 0; letter-spacing: -.015em; text-wrap: balance; }
+.m-author { font-size: 18px; margin: 0; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 4px 0; }
+.facts div { display: grid; gap: 2px; }
+.facts dt { font: 500 11px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.facts dd { margin: 0; font: 500 15px var(--f-mono); }
+.m-desc { font-size: 16px; margin: 4px 0 0; max-width: 52ch; }
+.m-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: auto; padding-top: 10px; }
+.btn.link { text-decoration: none; }
+.m-more { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 18px; min-width: 0; }
+.m-more h3 { font: 500 12px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+.thumbs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.thumbs .cover-btn .cover { box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+
+@media (max-width: 620px) {
+  .panel { grid-template-columns: 1fr; padding: 20px; }
+  .m-cover { max-width: 150px; }
+  .m-info { padding-right: 0; }
+  .grid { gap: 24px 14px; }
+  .thumbs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .spacer { display: none; }
+}
+</style>
+
+<div class="wrap" lang="ru">
+  <header>
+    <p class="kicker" id="kicker">Каталог</p>
+    <h1>Книжная полка</h1>
+    <p class="lede">От Данте до Айтматова: классика, фантастика, детективы, научпоп, детские книги и литература Центральной Азии. Ищите по названию или автору и собирайте своё избранное.</p>
+    <div class="spines" id="spines" aria-hidden="true"></div>
+  </header>
+
+  <section class="tools" aria-label="Поиск и сортировка">
+    <div class="search">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <label class="sr" for="q">Поиск по каталогу</label>
+      <input id="q" type="search" autocomplete="off" placeholder="Название, автор или слово из описания">
+    </div>
+    <div class="row">
+      <label class="sr" for="sort">Сортировка</label>
+      <select id="sort">
+        <option value="title">По названию</option>
+        <option value="author">По автору</option>
+        <option value="new">Сначала новые</option>
+        <option value="old">Сначала старые</option>
+      </select>
+      <button class="btn" id="favOnly" type="button" aria-pressed="false">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+        Избранное <span class="n" id="favCount">0</span>
+      </button>
+      <span class="spacer"></span>
+      <button class="btn" id="random" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+        Случайная книга
+      </button>
+    </div>
+  </section>
+
+  <div class="chips-bar">
+    <div class="chips" id="chips" role="group" aria-label="Разделы"></div>
+  </div>
+  <p class="status" id="status" aria-live="polite"></p>
+
+  <main>
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty" hidden>
+      <h2>Ничего не найдено</h2>
+      <p>Попробуйте другое название или автора. Можно сбросить раздел и поиск.</p>
+      <button class="btn" id="reset" type="button">Сбросить фильтры</button>
+    </div>
+  </main>
+
+  <footer>
+    Год указывает первое издание на языке оригинала; для старинных текстов и циклов даны века или периоды. Обложки нарисованы каталогом и не повторяют настоящие издания. Шифр состоит из кода раздела и номера книги в нём.
+  </footer>
+</div>
+
+<div class="overlay" id="modal" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="m-title" id="panel"></div>
+</div>
+
+<script>
+(function () {
+  var GENRES = {
+    'КЛ': { n: 'Классика', bg: '#7A2E3A', bg2: '#4E1824', ink: '#FBEFE0', ac: '#E9C9A0' },
+    'ФН': { n: 'Фантастика', bg: '#12355B', bg2: '#0A2039', ink: '#EAF7FA', ac: '#5FD0E0' },
+    'ФЭ': { n: 'Фэнтези', bg: '#1F4D3A', bg2: '#12301F', ink: '#F4F0DC', ac: '#E2B54A' },
+    'ДТ': { n: 'Детективы', bg: '#1E1E23', bg2: '#0E0E11', ink: '#F2F2F2', ac: '#E24A33' },
+    'НП': { n: 'Научпоп', bg: '#F2C230', bg2: '#E3AD14', ink: '#1B1B1F', ac: '#0F3D8A' },
+    'ФП': { n: 'Философия и психология', bg: '#B8D4E3', bg2: '#97BBD0', ink: '#10283A', ac: '#E0603A' },
+    'БЗ': { n: 'Бизнес', bg: '#0E6B5C', bg2: '#07463C', ink: '#F2FBF8', ac: '#F4E04D' },
+    'ИБ': { n: 'История и биографии', bg: '#5A4632', bg2: '#3A2C1E', ink: '#FAF1E4', ac: '#E8A33D' },
+    'ЦА': { n: 'Центральная Азия', bg: '#0B7FA6', bg2: '#075A78', ink: '#FFFFFF', ac: '#FFD34D' },
+    'ДЕ': { n: 'Детям', bg: '#FF8A70', bg2: '#F2694C', ink: '#2A0E0A', ac: '#FFE27A' },
+    'ПЗ': { n: 'Поэзия', bg: '#CFC3EA', bg2: '#B3A3DA', ink: '#241A45', ac: '#7A4FD6' },
+    'ПР': { n: 'Приключения', bg: '#D2561E', bg2: '#A53B10', ink: '#FFF3E8', ac: '#FFD7A0' }
+  };
+
+  // [раздел, название, автор, год, описание, подпись года (необязательно)]
+  var RAW = [
+    ['КЛ','Война и мир','Лев Толстой',1869,'Эпопея о войне 1812 года и судьбах нескольких дворянских семей.'],
+    ['КЛ','Анна Каренина','Лев Толстой',1878,'Роман о любви, браке и выборе, который нельзя отменить.'],
+    ['КЛ','Преступление и наказание','Фёдор Достоевский',1866,'Студент совершает убийство и пытается оправдать его собственной теорией.'],
+    ['КЛ','Братья Карамазовы','Фёдор Достоевский',1880,'Семейная драма, которая перерастает в спор о вере, свободе и вине.'],
+    ['КЛ','Мастер и Маргарита','Михаил Булгаков',1967,'Дьявол в Москве 1930-х и роман о Понтии Пилате внутри романа.'],
+    ['КЛ','Евгений Онегин','Александр Пушкин',1833,'Роман в стихах о столичном щёголе и провинциальной девушке Татьяне.'],
+    ['КЛ','Мёртвые души','Николай Гоголь',1842,'Чичиков скупает умерших крестьян и объезжает помещиков.'],
+    ['КЛ','Герой нашего времени','Михаил Лермонтов',1840,'Печорин, скучающий офицер, в пяти связанных повестях.'],
+    ['КЛ','Отцы и дети','Иван Тургенев',1862,'Спор поколений и нигилист Базаров, который не верит ни во что.'],
+    ['КЛ','Доктор Живаго','Борис Пастернак',1957,'Революция и гражданская война в судьбе врача и поэта.'],
+    ['КЛ','Гордость и предубеждение','Джейн Остин',1813,'Комедия нравов об Элизабет Беннет и гордом мистере Дарси.'],
+    ['КЛ','Большие надежды','Чарльз Диккенс',1861,'Сирота Пип неожиданно получает наследство от неизвестного благодетеля.'],
+    ['КЛ','Собор Парижской Богоматери','Виктор Гюго',1831,'Средневековый Париж, цыганка Эсмеральда и звонарь Квазимодо.'],
+    ['КЛ','Отверженные','Виктор Гюго',1862,'История Жана Вальжана, бывшего каторжника, и сыщика Жавера.'],
+    ['КЛ','Великий Гэтсби','Фрэнсис Скотт Фицджеральд',1925,'Лето богатства и иллюзий на Лонг-Айленде 1920-х годов.'],
+    ['КЛ','Убить пересмешника','Харпер Ли',1960,'Юг США 1930-х глазами девочки и суд над невиновным.'],
+    ['КЛ','Сто лет одиночества','Габриэль Гарсиа Маркес',1967,'Семь поколений семьи Буэндиа в вымышленном городе Макондо.'],
+    ['КЛ','Процесс','Франц Кафка',1925,'Банкира арестовывают, не объяснив, в чём его обвиняют.'],
+    ['КЛ','Посторонний','Альбер Камю',1942,'Равнодушный к миру герой оказывается на суде за убийство.'],
+    ['КЛ','Над пропастью во ржи','Джером Сэлинджер',1951,'Несколько дней подростка Холдена Колфилда в Нью-Йорке.'],
+    ['КЛ','Старик и море','Эрнест Хемингуэй',1952,'Кубинский рыбак ловит огромную рыбу и не может вернуться с пустыми руками.'],
+
+    ['ФН','1984','Джордж Оруэлл',1949,'Государство, где следят за каждым словом и даже за мыслью.'],
+    ['ФН','О дивный новый мир','Олдос Хаксли',1932,'Общество, в котором счастье покупается контролем и потреблением.'],
+    ['ФН','Мы','Евгений Замятин',1924,'Один из первых романов-антиутопий: жизнь по часам и без имён.'],
+    ['ФН','451 градус по Фаренгейту','Рэй Брэдбери',1953,'Пожарные сжигают книги, и один из них начинает сомневаться.'],
+    ['ФН','Дюна','Фрэнк Герберт',1965,'Борьба домов за пустынную планету, где добывают главный ресурс галактики.'],
+    ['ФН','Основание','Айзек Азимов',1951,'Математик предсказывает падение империи и создаёт Основание, чтобы сократить тёмные века.'],
+    ['ФН','Я, робот','Айзек Азимов',1950,'Рассказы о роботах и трёх законах робототехники.'],
+    ['ФН','Солярис','Станислав Лем',1961,'Контакт с мыслящим океаном, который отвечает людям их же воспоминаниями.'],
+    ['ФН','Пикник на обочине','Аркадий и Борис Стругацкие',1972,'Сталкеры ходят в Зону, где когда-то побывали пришельцы.'],
+    ['ФН','Машина времени','Герберт Уэллс',1895,'Изобретатель отправляется в далёкое будущее Земли.'],
+    ['ФН','Задача трёх тел','Лю Цысинь',2008,'Китайский роман о первом контакте с инопланетной цивилизацией.'],
+    ['ФН','Нейромант','Уильям Гибсон',1984,'Хакер, киберпространство и книга, с которой начался киберпанк.'],
+    ['ФН','Марсианин','Энди Вейер',2011,'Астронавт, оставленный на Марсе, выживает с помощью науки.'],
+    ['ФН','Левая рука тьмы','Урсула Ле Гуин',1969,'Посланник Экумены на планете, где у людей нет постоянного пола.'],
+    ['ФН','Гиперион','Дэн Симмонс',1989,'Семь паломников рассказывают свои истории по пути к Шрайку.'],
+    ['ФН','Цветы для Элджернона','Дэниел Киз',1966,'Дневник человека, чей интеллект меняется после операции.'],
+    ['ФН','Автостопом по галактике','Дуглас Адамс',1979,'Комедия о землянине, которого спасли за секунды до уничтожения планеты.'],
+
+    ['ФЭ','Хоббит','Дж. Р. Р. Толкин',1937,'Бильбо Бэггинс отправляется с гномами за сокровищем дракона.'],
+    ['ФЭ','Властелин колец','Дж. Р. Р. Толкин',1954,'Поход Братства, чтобы уничтожить Кольцо Всевластья.','1954–1955'],
+    ['ФЭ','Гарри Поттер и философский камень','Дж. К. Роулинг',1997,'Мальчик узнаёт, что он волшебник, и поступает в Хогвартс.'],
+    ['ФЭ','Лев, колдунья и волшебный шкаф','К. С. Льюис',1950,'Дети находят в шкафу дверь в Нарнию, первую книгу «Хроник Нарнии».'],
+    ['ФЭ','Волшебник Земноморья','Урсула Ле Гуин',1968,'Юный маг Гед и тень, которую он выпустил сам.'],
+    ['ФЭ','Игра престолов','Джордж Мартин',1996,'Борьба знатных домов за Железный трон Вестероса.'],
+    ['ФЭ','Имя ветра','Патрик Ротфусс',2007,'Хозяин трактира рассказывает историю своей жизни.'],
+    ['ФЭ','Ведьмак: Последнее желание','Анджей Сапковский',1993,'Рассказы о Геральте из Ривии, охотнике на чудовищ.'],
+    ['ФЭ','Американские боги','Нил Гейман',2001,'Старые боги воюют с новыми на дорогах Америки.'],
+    ['ФЭ','Путь королей','Брэндон Сандерсон',2010,'Первая книга «Архива Буресвета» о мире, где бушуют вечные бури.'],
+
+    ['ДТ','Приключения Шерлока Холмса','Артур Конан Дойл',1892,'Двенадцать рассказов о знаменитом сыщике с Бейкер-стрит.'],
+    ['ДТ','Собака Баскервилей','Артур Конан Дойл',1902,'Холмс и Ватсон расследуют проклятие рода на туманных болотах.'],
+    ['ДТ','Убийство в «Восточном экспрессе»','Агата Кристи',1934,'Пуаро расследует убийство в поезде, застрявшем в снегах.'],
+    ['ДТ','И никого не стало','Агата Кристи',1939,'Десять гостей на острове, и кто-то убивает их одного за другим.'],
+    ['ДТ','Девушка с татуировкой дракона','Стиг Ларссон',2005,'Журналист и хакер распутывают давнее исчезновение девушки.'],
+    ['ДТ','Имя розы','Умберто Эко',1980,'Монах-францисканец расследует убийства в средневековом аббатстве.'],
+    ['ДТ','Молчание ягнят','Томас Харрис',1988,'Агент ФБР просит помощи у заключённого психиатра Ганнибала Лектера.'],
+    ['ДТ','Код да Винчи','Дэн Браун',2003,'Погоня за тайной, спрятанной в произведениях искусства.'],
+    ['ДТ','Исчезнувшая','Гиллиан Флинн',2012,'В пятую годовщину свадьбы пропадает жена, и подозрение падает на мужа.'],
+    ['ДТ','Большой сон','Рэймонд Чандлер',1939,'Частный детектив Марлоу и семья богатого генерала.'],
+    ['ДТ','Мальтийский сокол','Дэшил Хэммет',1930,'Сэм Спейд ищет статуэтку, за которой охотятся многие.'],
+
+    ['НП','Краткая история времени','Стивен Хокинг',1988,'Вселенная, чёрные дыры и время почти без формул.'],
+    ['НП','Космос','Карл Саган',1980,'Путешествие по истории астрономии и месту человека во Вселенной.'],
+    ['НП','Sapiens. Краткая история человечества','Юваль Ной Харари',2011,'Как Homo sapiens стал доминировать на Земле.'],
+    ['НП','Эгоистичный ген','Ричард Докинз',1976,'Эволюция, увиденная с точки зрения генов.'],
+    ['НП','Ружья, микробы и сталь','Джаред Даймонд',1997,'Почему одни общества стали богатыми и сильными раньше других.'],
+    ['НП','Происхождение видов','Чарльз Дарвин',1859,'Книга, которая объяснила эволюцию естественным отбором.'],
+    ['НП','Структура научных революций','Томас Кун',1962,'Как наука меняет парадигмы и почему это не плавный процесс.'],
+    ['НП','Чёрный лебедь','Нассим Талеб',2007,'О редких событиях, которых никто не ждал и которые всё меняют.'],
+    ['НП','Думай медленно… решай быстро','Даниэль Канеман',2011,'Две системы мышления и ошибки интуиции.'],
+    ['НП','Хаос','Джеймс Глик',1987,'История науки о хаосе и о том, как её открывали.'],
+
+    ['ФП','Человек в поисках смысла','Виктор Франкл',1946,'Опыт концлагерей и основы логотерапии.'],
+    ['ФП','Так говорил Заратустра','Фридрих Ницше',1883,'Философская поэма о сверхчеловеке и смерти Бога.','1883–1885'],
+    ['ФП','Размышления','Марк Аврелий',170,'Личные заметки римского императора-стоика.','II в.'],
+    ['ФП','Апология Сократа','Платон',-380,'Речь Сократа на суде, где его обвиняют в безбожии.','IV в. до н. э.'],
+    ['ФП','Государь','Никколо Макиавелли',1532,'Трактат о власти и политическом расчёте.'],
+    ['ФП','Критика чистого разума','Иммануил Кант',1781,'Что человек может знать о мире и где границы разума.'],
+    ['ФП','Мир Софии','Юстейн Гордер',1991,'Роман-учебник по истории философии для подростка.'],
+    ['ФП','Игры, в которые играют люди','Эрик Берн',1964,'Транзактный анализ повседневных ситуаций общения.'],
+    ['ФП','Психология влияния','Роберт Чалдини',1984,'Шесть принципов убеждения и как их распознать.'],
+    ['ФП','Поток','Михай Чиксентмихайи',1990,'Как состояние полной вовлечённости делает жизнь осмысленнее.'],
+
+    ['БЗ','Как завоёвывать друзей','Дейл Карнеги',1936,'Полное название: «Как завоёвывать друзей и оказывать влияние на людей». Классика общения.'],
+    ['БЗ','Богатый папа, бедный папа','Роберт Кийосаки',1997,'Две модели отношения к деньгам на примере двух наставников.'],
+    ['БЗ','От хорошего к великому','Джим Коллинз',2001,'Что отличает компании, которые долго держат высокий результат.'],
+    ['БЗ','7 навыков высокоэффективных людей','Стивен Кови',1989,'Привычки, которые помогают достигать целей и работать с людьми.'],
+    ['БЗ','Разумный инвестор','Бенджамин Грэм',1949,'Основы ценностного инвестирования от учителя Баффета.'],
+    ['БЗ','Атомные привычки','Джеймс Клир',2018,'Как небольшие ежедневные действия меняют результат за год.'],
+    ['БЗ','От нуля к единице','Питер Тиль',2014,'О том, как строить компании, которые создают новое.'],
+    ['БЗ','Бизнес с нуля','Эрик Рис',2011,'Метод Lean Startup: проверять гипотезы быстро и дёшево.'],
+    ['БЗ','Глубокая работа','Кэл Ньюпорт',2016,'Как сосредоточиться на сложной работе в мире отвлечений.'],
+    ['БЗ','Цель','Элияху Голдратт',1984,'Роман об управлении заводом и теории ограничений.'],
+    ['БЗ','Богатство народов','Адам Смит',1776,'Основа классической экономики: разделение труда и свободный рынок.'],
+
+    ['ИБ','Стив Джобс','Уолтер Айзексон',2011,'Биография основателя Apple, написанная по интервью с ним самим.'],
+    ['ИБ','Дневник Анны Франк','Анна Франк',1947,'Записи девочки, которая скрывалась от нацистов в Амстердаме.'],
+    ['ИБ','Архипелаг ГУЛАГ','Александр Солженицын',1973,'Художественно-историческое исследование системы советских лагерей.'],
+    ['ИБ','Долгий путь к свободе','Нельсон Мандела',1994,'Автобиография борца с апартеидом и первого чернокожего президента ЮАР.'],
+    ['ИБ','SPQR. История Древнего Рима','Мэри Бирд',2015,'Как Рим из небольшого города стал империей.'],
+    ['ИБ','Шёлковый путь','Питер Франкопан',2015,'История мира с точки зрения торговых дорог Азии.'],
+    ['ИБ','Краткая история мира','Эрнст Гомбрих',1936,'История человечества, рассказанная просто и увлекательно.'],
+
+    ['ЦА','Путь Абая','Мухтар Ауэзов',1942,'Роман-эпопея о жизни казахского поэта и мыслителя Абая.','1942–1956'],
+    ['ЦА','Слова назидания','Абай Кунанбаев',1895,'Размышления поэта о человеке, знании и обществе.','1890-е'],
+    ['ЦА','Кочевники','Ильяс Есенберлин',1975,'Историческая трилогия о судьбе казахских ханств.','1970-е'],
+    ['ЦА','Аз и Я','Олжас Сулейменов',1975,'Книга о тюркском мире и «Слове о полку Игореве».'],
+    ['ЦА','И дольше века длится день','Чингиз Айтматов',1980,'Железнодорожник Едигей на степном разъезде и легенда о манкурте.'],
+    ['ЦА','Плаха','Чингиз Айтматов',1986,'Роман о волчьей семье, людях и поисках веры.'],
+    ['ЦА','Джамиля','Чингиз Айтматов',1958,'Повесть о любви в киргизском селе во время войны.'],
+    ['ЦА','Прощай, Гульсары!','Чингиз Айтматов',1966,'Старый колхозник вспоминает свою жизнь и верного коня.'],
+
+    ['ДЕ','Маленький принц','Антуан де Сент-Экзюпери',1943,'Сказка о мальчике с далёкой планеты и о том, что важно на самом деле.'],
+    ['ДЕ','Алиса в Стране чудес','Льюис Кэрролл',1865,'Девочка падает в кроличью нору и попадает в мир, где всё наоборот.'],
+    ['ДЕ','Пеппи Длинныйчулок','Астрид Линдгрен',1945,'Самая сильная девочка на свете живёт одна и сама решает, что можно.'],
+    ['ДЕ','Малыш и Карлсон, который живёт на крыше','Астрид Линдгрен',1955,'Шведский мальчик подружился с шалуном с моторчиком.'],
+    ['ДЕ','Винни-Пух','А. А. Милн',1926,'Медвежонок, его друзья и мёд в Зелёном лесу.'],
+    ['ДЕ','Приключения Незнайки и его друзей','Николай Носов',1954,'Коротышки из Цветочного города и их смешные приключения.'],
+    ['ДЕ','Волшебник Изумрудного города','Александр Волков',1939,'Элли и Тотошка в Волшебной стране.'],
+    ['ДЕ','Матильда','Роальд Даль',1988,'Девочка с необыкновенным умом и телекинезом против директрисы.'],
+    ['ДЕ','Чарли и шоколадная фабрика','Роальд Даль',1964,'Мальчик выигрывает билет на фабрику загадочного мистера Вонки.'],
+    ['ДЕ','Муми-тролль и комета','Туве Янссон',1946,'Муми-тролли отправляются к обсерватории, чтобы узнать про комету.'],
+    ['ДЕ','Дядя Фёдор, пёс и кот','Эдуард Успенский',1973,'Мальчик уходит из дома и находит друзей в деревне Простоквашино.'],
+    ['ДЕ','Бесконечная история','Михаэль Энде',1979,'Мальчик читает книгу и оказывается внутри неё.'],
+
+    ['ПЗ','Божественная комедия','Данте Алигьери',1320,'Путешествие поэта через Ад, Чистилище и Рай.','ок. 1320'],
+    ['ПЗ','Цветы зла','Шарль Бодлер',1857,'Сборник стихов, который изменил французскую поэзию.'],
+    ['ПЗ','Листья травы','Уолт Уитмен',1855,'Свободный стих, воспевающий человека и Америку.'],
+    ['ПЗ','Сонеты','Уильям Шекспир',1609,'154 сонета о любви, времени и поэзии.'],
+    ['ПЗ','Облако в штанах','Владимир Маяковский',1915,'Поэма о любви и бунте, ставшая манифестом футуризма.'],
+    ['ПЗ','Двенадцать','Александр Блок',1918,'Поэма о революционном Петрограде и двенадцати красногвардейцах.'],
+    ['ПЗ','Реквием','Анна Ахматова',1940,'Поэтический цикл о годах репрессий и матерях заключённых.','1935–1940'],
+    ['ПЗ','Рубаи','Омар Хайям',1100,'Четверостишия о вине, любви и скоротечности жизни.','XI–XII вв.'],
+
+    ['ПР','Остров сокровищ','Роберт Льюис Стивенсон',1883,'Юнга Джим находит карту пиратских сокровищ.'],
+    ['ПР','Граф Монте-Кристо','Александр Дюма',1844,'Моряк, несправедливо брошенный в тюрьму, возвращается за расплатой.','1844–1846'],
+    ['ПР','Три мушкетёра','Александр Дюма',1844,'Гасконец д’Артаньян вступает в дружбу с мушкетёрами короля.'],
+    ['ПР','Двадцать тысяч лье под водой','Жюль Верн',1870,'Капитан Немо и подводный корабль «Наутилус».'],
+    ['ПР','Вокруг света за 80 дней','Жюль Верн',1872,'Англичанин спорит, что обогнёт Землю быстрее чем за 80 дней.'],
+    ['ПР','Робинзон Крузо','Даниэль Дефо',1719,'Моряк попадает на необитаемый остров и учится жить в одиночку.'],
+    ['ПР','Моби Дик','Герман Мелвилл',1851,'Капитан Ахав идёт за белым китом на гибельный промысел.'],
+    ['ПР','Приключения Тома Сойера','Марк Твен',1876,'Американский мальчишка, сокровища и пещера у Миссисипи.'],
+    ['ПР','Зов предков','Джек Лондон',1903,'Домашний пёс Бэк попадает на Аляску и возвращается к дикой жизни.'],
+    ['ПР','Белый Клык','Джек Лондон',1906,'Судьба волка-полукровки, которого приручают люди.'],
+    ['ПР','Копи царя Соломона','Генри Райдер Хаггард',1885,'Экспедиция по африканской пустыне в поисках пропавших сокровищ.']
+  ];
+
+  var counters = {};
+  var BOOKS = RAW.map(function (r, i) {
+    counters[r[0]] = (counters[r[0]] || 0) + 1;
+    return {
+      id: i, g: r[0], t: r[1], a: r[2], y: r[3], d: r[4], yl: r[5] || String(r[3]),
+      mark: r[0] + '-' + String(counters[r[0]]).padStart(3, '0'),
+      last: r[2].split(/\s+/).pop()
+    };
+  });
+  BOOKS.forEach(function (b) {
+    b.search = norm(b.t + ' ' + b.a + ' ' + b.d + ' ' + GENRES[b.g].n);
+  });
+  var GENRE_COUNT = {};
+  BOOKS.forEach(function (b) { GENRE_COUNT[b.g] = (GENRE_COUNT[b.g] || 0) + 1; });
+
+  function norm(s) { return s.toLowerCase().replace(/ё/g, 'е'); }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function hash(s) { var h = 7; for (var i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) >>> 0; } return h; }
+  function pl(n, f) {
+    var m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return f[0];
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return f[1];
+    return f[2];
+  }
+
+  var HEART = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>';
+
+  var state = { q: '', genre: 'all', sort: 'title', favOnly: false };
+  var fav = new Set();
+  try { fav = new Set(JSON.parse(localStorage.getItem('polka:fav') || '[]')); } catch (e) {}
+  function saveFav() { try { localStorage.setItem('polka:fav', JSON.stringify(Array.from(fav))); } catch (e) {} }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var grid = $('grid'), chipsEl = $('chips'), statusEl = $('status'), emptyEl = $('empty');
+  var qEl = $('q'), sortEl = $('sort'), favBtn = $('favOnly'), favCount = $('favCount');
+  var modal = $('modal'), panel = $('panel');
+
+  function cover(b) {
+    var g = GENRES[b.g], h = hash(b.t);
+    var longest = Math.max.apply(null, b.t.split(/\s+/).map(function (w) { return w.replace(/[«»,.:…]/g, '').length; }));
+    var fs = Math.max(7.5, Math.min(15, 125 / longest, Math.sqrt(5400 / b.t.length)));
+    return '<span class="cover" style="--c1:' + g.bg + ';--c2:' + g.bg2 + ';--ink:' + g.ink + ';--ac:' + g.ac + ';--fs:' + fs.toFixed(1) + '">' +
+      '<span class="art p' + (h % 5) + '"></span>' +
+      '<span class="cv-title">' + esc(b.t) + '</span>' +
+      '<span class="cv-author">' + esc(b.a) + '</span></span>';
+  }
+
+  function card(b) {
+    var on = fav.has(b.t);
+    return '<article class="card">' +
+      '<button class="cover-btn" type="button" data-open="' + b.id + '" aria-label="' + esc(b.t) + ', ' + esc(b.a) + '. Подробнее">' + cover(b) + '</button>' +
+      '<div class="meta"><span class="mark">' + b.mark + '</span><span class="yr">' + esc(b.yl) + '</span>' +
+      '<button class="fav" type="button" data-fav="' + b.id + '" aria-pressed="' + on + '" aria-label="В избранное: ' + esc(b.t) + '">' + HEART + '</button></div>' +
+      '</article>';
+  }
+
+  function filtered() {
+    var q = norm(state.q.trim());
+    var list = BOOKS.filter(function (b) {
+      if (state.genre !== 'all' && b.g !== state.genre) return false;
+      if (state.favOnly && !fav.has(b.t)) return false;
+      if (q && b.search.indexOf(q) === -1) return false;
+      return true;
+    });
+    var cmp = {
+      title: function (a, b) { return a.t.localeCompare(b.t, 'ru'); },
+      author: function (a, b) { return a.last.localeCompare(b.last, 'ru') || a.t.localeCompare(b.t, 'ru'); },
+      'new': function (a, b) { return b.y - a.y || a.t.localeCompare(b.t, 'ru'); },
+      old: function (a, b) { return a.y - b.y || a.t.localeCompare(b.t, 'ru'); }
+    }[state.sort];
+    return list.sort(cmp);
+  }
+
+  var current = BOOKS.slice();
+  function render() {
+    current = filtered();
+    grid.innerHTML = current.map(card).join('');
+    emptyEl.hidden = current.length > 0;
+    grid.hidden = current.length === 0;
+    var active = state.q.trim() || state.genre !== 'all' || state.favOnly;
+    statusEl.textContent = active
+      ? 'Найдено ' + current.length + ' из ' + BOOKS.length
+      : 'Все ' + BOOKS.length + ' ' + pl(BOOKS.length, ['книга', 'книги', 'книг']);
+    favCount.textContent = fav.size;
+  }
+
+  function buildChips() {
+    var html = '<button class="chip" type="button" data-genre="all" aria-pressed="true" style="--dot:var(--fg)"><i></i>Все <small>' + BOOKS.length + '</small></button>';
+    Object.keys(GENRES).forEach(function (k) {
+      html += '<button class="chip" type="button" data-genre="' + k + '" aria-pressed="false" style="--dot:' + GENRES[k].bg + '"><i></i>' + GENRES[k].n + ' <small>' + GENRE_COUNT[k] + '</small></button>';
+    });
+    chipsEl.innerHTML = html;
+  }
+
+  function buildSpines() {
+    var picks = BOOKS.slice().sort(function (a, b) { return hash(a.t + 's') - hash(b.t + 's'); }).slice(0, 70);
+    $('spines').innerHTML = picks.map(function (b) {
+      var g = GENRES[b.g], h = hash(b.t);
+      return '<span class="spine" style="--c1:' + g.bg + ';--ac:' + g.ac + ';--w:' + (14 + (h >> 3) % 16) + 'px;--h:' + (56 + h % 42) + 'px"></span>';
+    }).join('');
+    var gn = Object.keys(GENRES).length;
+    $('kicker').textContent = 'Каталог · ' + BOOKS.length + ' ' + pl(BOOKS.length, ['книга', 'книги', 'книг']) + ' · ' + gn + ' ' + pl(gn, ['раздел', 'раздела', 'разделов']);
+  }
+
+  /* Modal */
+  var lastFocus = null;
+  function openBook(id) {
+    var b = BOOKS[id]; if (!b) return;
+    var g = GENRES[b.g];
+    var same = BOOKS.filter(function (x) { return x.g === b.g && x.id !== b.id; });
+    var start = same.findIndex(function (x) { return x.id > b.id; });
+    if (start < 0) start = 0;
+    var more = [];
+    for (var i = 0; i < Math.min(4, same.length); i++) more.push(same[(start + i) % same.length]);
+    var on = fav.has(b.t);
+    panel.innerHTML =
+      '<button class="close" type="button" data-close aria-label="Закрыть"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>' +
+      '<div class="m-cover">' + cover(b) + '</div>' +
+      '<div class="m-info">' +
+        '<p class="m-genre" style="--dot:' + g.bg + '"><i></i>' + esc(g.n) + '</p>' +
+        '<h2 id="m-title">' + esc(b.t) + '</h2>' +
+        '<p class="m-author">' + esc(b.a) + '</p>' +
+        '<dl class="facts"><div><dt>Год</dt><dd>' + esc(b.yl) + '</dd></div><div><dt>Шифр</dt><dd>' + b.mark + '</dd></div></dl>' +
+        '<p class="m-desc">' + esc(b.d) + '</p>' +
+        '<div class="m-actions">' +
+          '<button class="btn" type="button" data-mfav="' + b.id + '" aria-pressed="' + on + '">' + HEART.replace('width="20" height="20"', 'width="16" height="16"') + '<span>' + (on ? 'В избранном' : 'В избранное') + '</span></button>' +
+          '<a class="btn link" target="_blank" rel="noopener" href="https://www.google.com/search?q=' + encodeURIComponent(b.t + ' ' + b.a + ' книга') + '">Искать в интернете</a>' +
+        '</div>' +
+      '</div>' +
+      (more.length ? '<div class="m-more"><h3>Ещё в разделе «' + esc(g.n) + '»</h3><div class="thumbs">' +
+        more.map(function (x) { return '<button class="cover-btn" type="button" data-open="' + x.id + '" aria-label="' + esc(x.t) + ', ' + esc(x.a) + '">' + cover(x) + '</button>'; }).join('') +
+      '</div></div>' : '');
+    var wasOpen = !modal.hidden;
+    if (!wasOpen) lastFocus = document.activeElement;
+    modal.hidden = false;
+    panel.scrollTop = 0;
+    try { document.documentElement.style.overflow = 'hidden'; } catch (e) {}
+    var c = panel.querySelector('.close'); if (c) c.focus();
+  }
+  function closeModal() {
+    modal.hidden = true;
+    try { document.documentElement.style.overflow = ''; } catch (e) {}
+    if (lastFocus && document.contains(lastFocus)) { try { lastFocus.focus(); } catch (e) {} }
+  }
+
+  function toggleFav(id) {
+    var b = BOOKS[id]; if (!b) return;
+    if (fav.has(b.t)) fav.delete(b.t); else fav.add(b.t);
+    saveFav();
+    var on = fav.has(b.t);
+    favCount.textContent = fav.size;
+    if (state.favOnly) { render(); return; }
+    var btn = grid.querySelector('[data-fav="' + id + '"]');
+    if (btn) btn.setAttribute('aria-pressed', on);
+  }
+
+  /* Events */
+  qEl.addEventListener('input', function () { state.q = qEl.value; render(); });
+  sortEl.addEventListener('change', function () { state.sort = sortEl.value; render(); });
+  favBtn.addEventListener('click', function () {
+    state.favOnly = !state.favOnly;
+    favBtn.setAttribute('aria-pressed', state.favOnly);
+    render();
+  });
+  chipsEl.addEventListener('click', function (e) {
+    var c = e.target.closest('[data-genre]'); if (!c) return;
+    state.genre = c.getAttribute('data-genre');
+    Array.prototype.forEach.call(chipsEl.children, function (el) {
+      el.setAttribute('aria-pressed', el === c);
+    });
+    render();
+  });
+  $('random').addEventListener('click', function () {
+    var pool = current.length ? current : BOOKS;
+    openBook(pool[Math.floor(Math.random() * pool.length)].id);
+  });
+  $('reset').addEventListener('click', function () {
+    state = { q: '', genre: 'all', sort: state.sort, favOnly: false };
+    qEl.value = '';
+    favBtn.setAttribute('aria-pressed', 'false');
+    Array.prototype.forEach.call(chipsEl.children, function (el, i) { el.setAttribute('aria-pressed', i === 0); });
+    render();
+  });
+  grid.addEventListener('click', function (e) {
+    var f = e.target.closest('[data-fav]');
+    if (f) { toggleFav(+f.getAttribute('data-fav')); return; }
+    var o = e.target.closest('[data-open]');
+    if (o) openBook(+o.getAttribute('data-open'));
+  });
+  panel.addEventListener('click', function (e) {
+    if (e.target.closest('[data-close]')) { closeModal(); return; }
+    var f = e.target.closest('[data-mfav]');
+    if (f) {
+      var id = +f.getAttribute('data-mfav');
+      toggleFav(id);
+      var on = fav.has(BOOKS[id].t);
+      f.setAttribute('aria-pressed', on);
+      f.querySelector('span').textContent = on ? 'В избранном' : 'В избранное';
+      var cardBtn = grid.querySelector('[data-fav="' + id + '"]');
+      if (cardBtn) cardBtn.setAttribute('aria-pressed', on);
+      return;
+    }
+    var o = e.target.closest('[data-open]');
+    if (o) openBook(+o.getAttribute('data-open'));
+  });
+  modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', function (e) {
+    if (modal.hidden) return;
+    if (e.key === 'Escape') { closeModal(); return; }
+    if (e.key === 'Tab') {
+      var f = panel.querySelectorAll('button, a[href]');
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
+
+  buildChips();
+  buildSpines();
+  render();
+})();
+</script>
+
+</body></html>
